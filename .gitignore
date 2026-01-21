@@ -1,0 +1,27 @@
+# Environment variables
+.env
+
+# User configuration
+paths.txt
+
+# Output files
+video_files.txt
+media_analysis.json
+editable_files.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
