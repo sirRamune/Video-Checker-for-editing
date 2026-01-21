@@ -1,0 +1,8 @@
+# Example paths.txt file
+# Add one directory path per line
+# Lines starting with # are ignored
+
+# Example paths:
+# /home/user/Videos
+# /media/external/Movies
+# C:\Users\username\Videos
