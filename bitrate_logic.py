@@ -19,7 +19,7 @@ def load_video_config():
     reference_width = int(os.getenv('REFERENCE_WIDTH', '1920'))
     reference_height = int(os.getenv('REFERENCE_HEIGHT', '1080'))
     reference_framerate = int(os.getenv('REFERENCE_FRAMERATE', '24'))
-    reference_bitrate = int(os.getenv('REFERENCE_BITRATE', '6000'))
+    reference_bitrate = int(os.getenv('REFERENCE_BITRATE', '6000000'))
 
     # Get encoder (string)
     reference_encoder = os.getenv('REFERENCE_ENCODER', 'AVC')
