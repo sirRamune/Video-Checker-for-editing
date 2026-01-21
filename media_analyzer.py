@@ -179,7 +179,7 @@ def check_video_bitrate_reduction(media_data: Dict[str, Any], acceptable_differe
 def check_first_audio_default(media_data: Dict[str, Any]) -> Dict[str, Any]:
     """Check if the first audio track is set as default."""
     audio_tracks = media_data.get("audio_tracks", [])
-    check_type = "First audio track is default"
+    check_type = "First audio track is not default"
 
     if not audio_tracks:
         return {
@@ -209,7 +209,7 @@ def check_first_audio_default(media_data: Dict[str, Any]) -> Dict[str, Any]:
 def check_first_subtitle_default(media_data: Dict[str, Any]) -> Dict[str, Any]:
     """Check if the first subtitle track is set as default."""
     subtitle_tracks = media_data.get("subtitle_tracks", [])
-    check_type = "First subtitle track is default"
+    check_type = "First subtitle track is not default"
 
     if not subtitle_tracks:
         return {
