@@ -52,6 +52,8 @@ def get_scan_paths(scan_paths_str: str, paths_file: str) -> List[str]:
     else:
         print(f"Warning: No paths specified in .env") 
     
+    print()
+    
     # Then, read from file
     paths.extend(read_paths_from_file(paths_file))
 
