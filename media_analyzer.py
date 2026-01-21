@@ -131,7 +131,7 @@ def check_video_bitrate_reduction(media_data: Dict[str, Any], acceptable_differe
             "editable": False,
             "reason": "No video tracks found"
         }
-    
+
     if len(media_data.get("video_tracks")) > 1:
         return {
             "type": check_type,
@@ -301,9 +301,9 @@ def print_summary(analyses: List[Dict[str, Any]]):
                     }
 
     print(f"Total files analyzed: {total}")
-    
+
     for editable_count in editables_counts:
-        print(f"  {editables_counts[editable_count].get("type")}: {editables_counts[editable_count].get("count")}")
+        print(f"  {editables_counts[editable_count].get('type')}: {editables_counts[editable_count].get('count')}")
 
     print("=" * 70)
 
