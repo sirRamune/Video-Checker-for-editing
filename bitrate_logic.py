@@ -116,6 +116,76 @@ def calculate_suggested_video_bitrate(width: int, height: int, framerate: float,
     return rounded_suggested_bitrate
 
 
+def load_output_config():
+    """Load output encoding configuration from .env file."""
+    load_dotenv()
+
+    # Get output encoding settings
+    output_encoder = os.getenv('OUTPUT_ENCODER', 'libx265')
+
+    return output_encoder
+
+
+def calculate_encoding_parameters(
+    source_width: int,
+    source_height: int,
+    source_framerate: float
+) -> dict:
+    """
+    Calculate encoding parameters (target bitrate, maxrate, bufsize) based on source video
+    properties and output encoder configuration from .env.
+
+    This calculates the appropriate bitrate for re-encoding the source video at its
+    original resolution using the target encoder (e.g., HEVC instead of AVC).
+
+    Args:
+        source_width: Source video width in pixels
+        source_height: Source video height in pixels
+        source_framerate: Source video framerate (fps)
+
+    Returns:
+        Dictionary with encoding parameters:
+        - target_bitrate: Target bitrate in bits per second
+        - maxrate: Maximum bitrate in bits per second
+        - bufsize: Buffer size in bits per second
+        - encoder: Encoder codec name (from .env)
+    """
+    # Load output configuration
+    output_encoder = load_output_config()
+
+    # Determine target encoder format for calculation
+    # Map ffmpeg codec names to our encoder efficiency names
+    encoder_map = {
+        'libx264': 'AVC',
+        'libx265': 'HEVC',
+        'libaom-av1': 'AV1',
+        'libvpx-vp9': 'VP9',
+    }
+    target_encoder = encoder_map.get(output_encoder, 'HEVC')
+
+    # Calculate suggested bitrate using SOURCE dimensions and framerate
+    # but with the TARGET encoder
+    target_bitrate = calculate_suggested_video_bitrate(
+        source_width,
+        source_height,
+        source_framerate,
+        target_encoder
+    )
+
+    # Calculate maxrate (1.3x target bitrate)
+    maxrate = int(target_bitrate * 1.3)
+
+    # Calculate bufsize (2x maxrate)
+    bufsize = maxrate * 2
+
+    return {
+        'target_bitrate': target_bitrate,
+        'maxrate': maxrate,
+        'bufsize': bufsize,
+        'encoder': output_encoder
+    }
+
+
 def format_bitrate(bitrate: int) -> str:
     """Format bitrate for human-readable output."""
     if bitrate >= 1_000_000:
