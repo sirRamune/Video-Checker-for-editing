@@ -173,7 +173,7 @@ def calculate_encoding_parameters(
     )
 
     # Calculate maxrate (1.3x target bitrate)
-    maxrate = int(target_bitrate * 1.3)
+    maxrate = int(target_bitrate * 1.111)
 
     # Calculate bufsize (2x maxrate)
     bufsize = maxrate * 2
