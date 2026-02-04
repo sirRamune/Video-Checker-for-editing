@@ -176,56 +176,28 @@ def check_video_bitrate_reduction(media_data: Dict[str, Any], acceptable_differe
     }
 
 
-def check_first_audio_default(media_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Check if the first audio track is set as default."""
-    audio_tracks = media_data.get("audio_tracks", [])
-    check_type = "First audio track is not default"
+def check_track_defaults(media_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Check if there's an audio or subtitle track set as default."""
+    tracks = media_data.get("audio_tracks", []) + media_data.get("subtitle_tracks", [])
+    check_type = "Audio or subtitle tracks set as default"
 
-    if not audio_tracks:
+    if not tracks:
         return {
             "type": check_type,
             "editable": False,
-            "reason": "No audio tracks found"
+            "reason": "No audio or subtitle tracks found"
         }
 
-    if len(audio_tracks) == 1:
-        return {
-            "type": check_type,
-            "editable": False,
-            "reason": "Only one audio track exists"
-        }
-
-    first_track = audio_tracks[0]
-    is_default = first_track.get("default") == "Yes"
+    has_default = False
+    for track in tracks:
+        if track.get("default") == "Yes":
+            has_default = True
 
     return {
         "type": check_type,
-        "editable": not is_default,
-        "is_default": is_default,
-        "reason": f"First audio track default flag: {is_default}"
-    }
-
-
-def check_first_subtitle_default(media_data: Dict[str, Any]) -> Dict[str, Any]:
-    """Check if the first subtitle track is set as default."""
-    subtitle_tracks = media_data.get("subtitle_tracks", [])
-    check_type = "First subtitle track is not default"
-
-    if not subtitle_tracks:
-        return {
-            "type": check_type,
-            "editable": False,
-            "reason": "No subtitle tracks found"
-        }
-
-    first_track = subtitle_tracks[0]
-    is_default = first_track.get("default") == "Yes"
-
-    return {
-        "type": check_type,
-        "editable": not is_default,
-        "is_default": is_default,
-        "reason": f"First subtitle track default flag: {is_default}"
+        "editable": has_default,
+        "has_default": has_default,
+        "reason": f"There's an audio or subtitle track set as default" if has_default else f"There's NO audio or subtitle track set as default"
     }
 
 
@@ -248,8 +220,7 @@ def analyze_file(file_path: str, acceptable_difference: float) -> Optional[Dict[
         "media_info": media_data,
         "checks": [
             check_video_bitrate_reduction(media_data, acceptable_difference),
-            check_first_audio_default(media_data),
-            check_first_subtitle_default(media_data),
+            check_track_defaults(media_data),
         ]
     }
 
