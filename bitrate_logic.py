@@ -181,13 +181,13 @@ def load_output_config():
     load_dotenv()
 
     # Get video output reference values (integers)
-    reference_width = int(os.getenv('REFERENCE_WIDTH', '1920'))
-    reference_height = int(os.getenv('REFERENCE_HEIGHT', '1080'))
-    reference_framerate = int(os.getenv('REFERENCE_FRAMERATE', '24'))
-    reference_bitrate = int(os.getenv('REFERENCE_BITRATE', '4500000'))
+    reference_width = int(os.getenv('OUTPUT_REFERENCE_WIDTH', '1920'))
+    reference_height = int(os.getenv('OUTPUT_REFERENCE_HEIGHT', '1080'))
+    reference_framerate = int(os.getenv('OUTPUT_REFERENCE_FRAMERATE', '24'))
+    reference_bitrate = int(os.getenv('OUTPUT_REFERENCE_BITRATE', '4500000'))
 
     # Get encoder (string)
-    reference_encoder = os.getenv('REFERENCE_ENCODER', 'HEVC')
+    reference_encoder = os.getenv('OUTPUT_REFERENCE_ENCODER', 'HEVC')
 
     # Get output encoding settings
     output_encoder = os.getenv('OUTPUT_ENCODER', 'libx265')
