@@ -7,24 +7,14 @@ import os
 from dotenv import load_dotenv
 
 
-def load_video_config():
-    """Load configuration from .env file."""
-    load_dotenv()
-
-    # Get scaling values (floats)
-    pixel_scaling = float(os.getenv('PIXEL_SCALING', '90.0'))
-    framerate_scaling = float(os.getenv('FRAMERATE_SCALING', '75.0'))
-
-    # Get video reference values (integers)
-    reference_width = int(os.getenv('REFERENCE_WIDTH', '1920'))
-    reference_height = int(os.getenv('REFERENCE_HEIGHT', '1080'))
-    reference_framerate = int(os.getenv('REFERENCE_FRAMERATE', '24'))
-    reference_bitrate = int(os.getenv('REFERENCE_BITRATE', '6000000'))
-
-    # Get encoder (string)
-    reference_encoder = os.getenv('REFERENCE_ENCODER', 'AVC')
-
-    return pixel_scaling, framerate_scaling, reference_width, reference_height, reference_framerate, reference_bitrate, reference_encoder
+def format_bitrate(bitrate: int) -> str:
+    """Format bitrate for human-readable output."""
+    if bitrate >= 1_000_000:
+        return f"{bitrate / 1_000_000:.2f} Mbps"
+    elif bitrate >= 1_000:
+        return f"{bitrate / 1_000:.2f} Kbps"
+    else:
+        return f"{bitrate} bps"
 
 
 def obtain_encoder_efficiency(encoder: str) -> float:
@@ -71,24 +61,47 @@ def obtain_encoder_efficiency(encoder: str) -> float:
     return ENCODER_MAP.get(encoder.lower(), 0)
 
 
+def load_scaling_config():
+    """Load configuration from .env file."""
+    load_dotenv()
 
-def calculate_suggested_video_bitrate(width: int, height: int, framerate: float, encoder:str) -> int:
+    # Get scaling values (floats)
+    pixel_scaling = float(os.getenv('PIXEL_SCALING', '90.0'))
+    framerate_scaling = float(os.getenv('FRAMERATE_SCALING', '75.0'))
+
+    return pixel_scaling, framerate_scaling
+
+
+def obtain_suggested_bitrate(
+    reference_width: int,
+    reference_height: int,
+    reference_framerate: int,
+    reference_bitrate: int,
+    reference_encoder: str,
+    width: int,
+    height: int,
+    framerate: int,
+    encoder: str
+) -> int:
     """
-    Determine if the video bitrate can be reduced based on resolution and framerate.
+    Obtain optimal bitrate using reference values.
 
     Args:
+        reference_width: Reference video width in pixels
+        reference_height: Reference video height in pixels
+        reference_framerate: Reference video framerate (fps)
+        reference_bitrate: Reference current video bitrate in bits per second
+        reference_encoder: Reference format of the video (AVC, HEVC, AV1)
         width: Video width in pixels
         height: Video height in pixels
         framerate: Video framerate (fps)
-        current_bitrate: Current video bitrate in bits per second
         encoder: Format of the video (AVC, HEVC, AV1)
 
     Returns:
         suggested_bitrate: int suggested bitrate in bits per second
     """
-
     # Get configuration
-    pixel_scaling, framerate_scaling, reference_width, reference_height, reference_framerate, reference_bitrate, reference_encoder = load_video_config()
+    pixel_scaling, framerate_scaling = load_scaling_config()
 
     # Get pixel count
     pixel_count = width * height
@@ -116,14 +129,70 @@ def calculate_suggested_video_bitrate(width: int, height: int, framerate: float,
     return rounded_suggested_bitrate
 
 
+def load_reference_config():
+    """Load configuration from .env file."""
+    load_dotenv()
+
+    # Get video reference values (integers)
+    reference_width = int(os.getenv('REFERENCE_WIDTH', '1920'))
+    reference_height = int(os.getenv('REFERENCE_HEIGHT', '1080'))
+    reference_framerate = int(os.getenv('REFERENCE_FRAMERATE', '24'))
+    reference_bitrate = int(os.getenv('REFERENCE_BITRATE', '6000000'))
+
+    # Get encoder (string)
+    reference_encoder = os.getenv('REFERENCE_ENCODER', 'AVC')
+
+    return reference_width, reference_height, reference_framerate, reference_bitrate, reference_encoder
+
+
+def calculate_suggested_video_bitrate(width: int, height: int, framerate: float, encoder:str) -> int:
+    """
+    Determine if the video bitrate can be reduced based on resolution and framerate.
+
+    Args:
+        width: Video width in pixels
+        height: Video height in pixels
+        framerate: Video framerate (fps)
+        encoder: Format of the video (AVC, HEVC, AV1)
+
+    Returns:
+        suggested_bitrate: int suggested bitrate in bits per second
+    """
+    # Get configuration
+    reference_width, reference_height, reference_framerate, reference_bitrate, reference_encoder = load_reference_config()
+
+    suggested_bitrate = obtain_suggested_bitrate(
+        reference_width,
+        reference_height,
+        reference_framerate,
+        reference_bitrate,
+        reference_encoder,
+        width,
+        height,
+        framerate,
+        encoder
+    )
+
+    return suggested_bitrate
+
+
 def load_output_config():
     """Load output encoding configuration from .env file."""
     load_dotenv()
 
+    # Get video output reference values (integers)
+    reference_width = int(os.getenv('REFERENCE_WIDTH', '1920'))
+    reference_height = int(os.getenv('REFERENCE_HEIGHT', '1080'))
+    reference_framerate = int(os.getenv('REFERENCE_FRAMERATE', '24'))
+    reference_bitrate = int(os.getenv('REFERENCE_BITRATE', '4500000'))
+
+    # Get encoder (string)
+    reference_encoder = os.getenv('REFERENCE_ENCODER', 'HEVC')
+
     # Get output encoding settings
     output_encoder = os.getenv('OUTPUT_ENCODER', 'libx265')
 
-    return output_encoder
+    return reference_width, reference_height, reference_framerate, reference_bitrate, reference_encoder, output_encoder
 
 
 def calculate_encoding_parameters(
@@ -150,8 +219,8 @@ def calculate_encoding_parameters(
         - bufsize: Buffer size in bits per second
         - encoder: Encoder codec name (from .env)
     """
-    # Load output configuration
-    output_encoder = load_output_config()
+    # Get configuration
+    reference_width, reference_height, reference_framerate, reference_bitrate, reference_encoder, output_encoder = load_output_config()
 
     # Determine target encoder format for calculation
     # Map ffmpeg codec names to our encoder efficiency names
@@ -165,14 +234,19 @@ def calculate_encoding_parameters(
 
     # Calculate suggested bitrate using SOURCE dimensions and framerate
     # but with the TARGET encoder
-    target_bitrate = calculate_suggested_video_bitrate(
+    target_bitrate = obtain_suggested_bitrate(
+        reference_width,
+        reference_height,
+        reference_framerate,
+        reference_bitrate,
+        reference_encoder,
         source_width,
         source_height,
         source_framerate,
         target_encoder
     )
 
-    # Calculate maxrate (1.3x target bitrate)
+    # Calculate maxrate (1.111x target bitrate)
     maxrate = int(target_bitrate * 1.111)
 
     # Calculate bufsize (2x maxrate)
@@ -184,13 +258,3 @@ def calculate_encoding_parameters(
         'bufsize': bufsize,
         'encoder': output_encoder
     }
-
-
-def format_bitrate(bitrate: int) -> str:
-    """Format bitrate for human-readable output."""
-    if bitrate >= 1_000_000:
-        return f"{bitrate / 1_000_000:.2f} Mbps"
-    elif bitrate >= 1_000:
-        return f"{bitrate / 1_000:.2f} Kbps"
-    else:
-        return f"{bitrate} bps"
