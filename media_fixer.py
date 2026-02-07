@@ -216,9 +216,36 @@ def find_bitrate_optimization(media_data: List[Dict[str, Any]]) -> List[Dict[str
     return files_to_optimize
 
 
+def process_mkvmerge(
+    input_path: Path,
+    output_path: Path
+) -> int:
+    """
+    Run mkvmerge to refresh metadata of video.
+    
+    Args:
+        input_path: Path to input video file
+        output_path: Path to output video file
+
+    Returns:
+        Return code from mkvmerge command
+    """
+    cmd = [
+        "mkvmerge",
+        "-o", str(output_path),
+        str(input_path)
+    ]
+
+    print("Running mkvmerge:")
+    print(" ".join(cmd))
+
+    result = subprocess.run(cmd, check=True)
+    return result.returncode
+
+
 def encode_video_vbr(
-    input_file: Path,
-    output_file: Path,
+    input_path: Path,
+    output_path: Path,
     target_bitrate: int,
     maxrate: int,
     bufsize: int,
@@ -229,8 +256,8 @@ def encode_video_vbr(
     Encode video with VBR (Variable Bit Rate).
 
     Args:
-        input_file: Path to input video file
-        output_file: Path to output video file
+        input_path: Path to input video file
+        output_path: Path to output video file
         target_bitrate: Target bitrate in bits per second
         maxrate: Maximum bitrate in bits per second
         bufsize: Buffer size in bits per second
@@ -248,7 +275,7 @@ def encode_video_vbr(
     cmd = [
         "ffmpeg",
         "-y",
-        "-i", str(input_file),
+        "-i", str(input_path),
         "-map", "0",
         "-c:v", encoder,
         "-b:v", f"{target_bitrate_kbps}k",
@@ -257,7 +284,7 @@ def encode_video_vbr(
         "-preset", preset,
         "-c:a", "copy",
         "-c:s", "copy",
-        str(output_file)
+        str(output_path)
     ]
 
     print("Running FFmpeg:")
@@ -265,6 +292,57 @@ def encode_video_vbr(
 
     result = subprocess.run(cmd, check=True)
     return result.returncode
+
+
+def process_entry_optimization(
+    input_path: Path,
+    output_path: Path,
+    entry: Dict[str, Any]
+) -> int:
+    """
+    Run all optimization process for a file
+    From encoding to even replacing the original file with optimization
+    
+    Args:
+        input_file: Path to input video file
+        output_file: Path to output video file
+
+    Returns:
+        Return code from mkvmerge command
+    """
+    try:
+        # Encode file into output directory
+        returncode = encode_video_vbr(
+            input_path,
+            output_path,
+            entry['target_bitrate'],
+            entry['maxrate'],
+            entry['bufsize'],
+            entry['encoder']
+        )
+        if returncode != 0:
+            return returncode
+        
+        # Remove source file
+        os.remove(input_path)
+
+        # Update metadata and save output at source file path
+        returncode = process_mkvmerge(
+            output_path,
+            input_path
+        )
+        if returncode != 0:
+            return returncode
+        
+        # Delete file in output directory
+        os.remove(output_path)
+
+        return 0
+
+    except subprocess.CalledProcessError as e:
+        raise e
+    except Exception as e:
+        raise e
 
 
 def process_bitrate_optimization(
@@ -319,13 +397,10 @@ def process_bitrate_optimization(
         print(f"  Encoder: {entry['encoder']}")
         print(f"  Output: {output_path}")
         try:
-            returncode = encode_video_vbr(
+            returncode = process_entry_optimization(
                 input_path,
                 output_path,
-                entry['target_bitrate'],
-                entry['maxrate'],
-                entry['bufsize'],
-                entry['encoder']
+                entry
             )
 
             if returncode == 0:
@@ -336,21 +411,21 @@ def process_bitrate_optimization(
                 print(f"  ✗ {error_msg}")
                 failed_files.append({'file_path': file_path, 'error': error_msg})
                 # Clean up output file if it exists
-                if output_path.exists():
+                if input_path.exists() and output_path.exists():
                     output_path.unlink()
         except subprocess.CalledProcessError as e:
             error_msg = str(e)
             print(f"  ✗ Error: {error_msg}")
             failed_files.append({'file_path': file_path, 'error': error_msg})
             # Clean up output file if it exists
-            if output_path.exists():
+            if input_path.exists() and output_path.exists():
                 output_path.unlink()
         except Exception as e:
             error_msg = str(e)
             print(f"  ✗ Unexpected error: {error_msg}")
             failed_files.append({'file_path': file_path, 'error': error_msg})
             # Clean up output file if it exists
-            if output_path.exists():
+            if input_path.exists() and output_path.exists():
                 output_path.unlink()
         print()
 
