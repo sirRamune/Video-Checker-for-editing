@@ -389,7 +389,7 @@ def process_bitrate_optimization(
         print(f"  - {entry['file_path']}")
         print(f"    {entry['width']}x{entry['height']}@{entry['framerate']}fps")
         print(f"    Current: {current_bitrate:.2f} Mbps → Target: {target_bitrate:.2f} Mbps")
-        print(f"    Encoder: {entry['encoder']}")
+        print(f"    Encoder: {output_encoder}")
     print()
 
     print(f"Processing {len(files_to_optimize)} file(s)...")
@@ -405,7 +405,7 @@ def process_bitrate_optimization(
 
         print(f"Processing: {file_path}")
         print(f"  Target bitrate: {entry['target_bitrate'] / 1_000_000:.2f} Mbps")
-        print(f"  Encoder: {entry['encoder']}")
+        print(f"  Encoder: {output_encoder}")
         print(f"  Output: {output_path}")
         try:
             returncode = process_entry_optimization(
