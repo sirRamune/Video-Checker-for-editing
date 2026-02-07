@@ -21,24 +21,26 @@ def load_config():
     # Get paths from config or file
     scan_paths_str = os.getenv('SCAN_PATHS', '')
     paths_file = os.getenv('PATHS_FILE', 'paths.txt')
+    exclusions_str = os.getenv('EXCLUSIONS', '')
+    exclusions_file = os.getenv('EXCLUSIONS_FILE', 'exclusions.txt')
     output_file = os.getenv('OUTPUT_FILE', 'video_files.txt')
 
-    return extensions, scan_paths_str, paths_file, output_file
+    return extensions, scan_paths_str, paths_file, exclusions_str, exclusions_file, output_file
 
 
-def read_paths_from_file(file_path: str) -> List[str]:
-    """Read directory paths from a text file (one path per line)."""
-    paths = []
+def read_lines_from_file(file_path: str, line_type: str) -> List[str]:
+    """Read lines from a text file."""
+    lines = []
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             for line in f:
                 line = line.strip()
                 if line and not line.startswith('#'):  # Skip empty lines and comments
-                    paths.append(line)
-        print(f"Loaded {len(paths)} path(s) from {file_path}")
+                    lines.append(line)
+        print(f"Loaded {len(lines)} {line_type}(s) from {file_path}")
     except FileNotFoundError:
         print(f"Warning: {file_path} not found")
-    return paths
+    return lines
 
 
 def get_scan_paths(scan_paths_str: str, paths_file: str) -> List[str]:
@@ -55,12 +57,31 @@ def get_scan_paths(scan_paths_str: str, paths_file: str) -> List[str]:
     print()
     
     # Then, read from file
-    paths.extend(read_paths_from_file(paths_file))
+    paths.extend(read_lines_from_file(paths_file, 'path'))
 
     return paths
 
 
-def scan_for_videos(directory: str, extensions: Set[str]) -> List[Path]:
+def get_exclusions(exclusions_str: str, exclusions_file: str) -> List[str]:
+    """Get list of exclusions from config or file."""
+    exclusions = []
+
+    # First, try to get paths from environment variable
+    if exclusions_str:
+        exclusions_str = [p.strip() for p in exclusions_str.split(',') if p.strip()]
+        print(f"Using {len(exclusions)} exclusion(s) from .env")
+    else:
+        print(f"Warning: No exclusions specified in .env") 
+    
+    print()
+    
+    # Then, read from file
+    exclusions.extend(read_lines_from_file(exclusions_file, 'exclusion'))
+
+    return exclusions
+
+
+def scan_for_videos(directory: str, extensions: Set[str], exclusions: List[str]) -> List[Path]:
     """Recursively scan directory for video files."""
     video_files = []
     dir_path = Path(directory)
@@ -79,7 +100,8 @@ def scan_for_videos(directory: str, extensions: Set[str]) -> List[Path]:
         for file_path in dir_path.rglob('*'):
             if file_path.is_file():
                 if file_path.suffix.lower() in extensions:
-                    video_files.append(file_path)
+                    if not any(exclusion.lower() in file_path.as_posix().lower() for exclusion in exclusions):
+                        video_files.append(file_path)
     except PermissionError as e:
         print(f"Permission denied: {e}")
     except Exception as e:
@@ -104,7 +126,7 @@ def main():
     print("=" * 50)
 
     # Load configuration
-    extensions, scan_paths_str, paths_file, output_file = load_config()
+    extensions, scan_paths_str, paths_file, exclusions_str, exclusions_file, output_file = load_config()
     extensions_set = set(extensions)
 
     print(f"Looking for extensions: {', '.join(extensions)}")
@@ -117,10 +139,14 @@ def main():
         print("Error: No paths to scan. Please configure SCAN_PATHS in .env or create paths.txt")
         return
 
+    # Get exclusions
+    exclusions = get_exclusions(exclusions_str, exclusions_file)
+    print()
+
     # Scan all directories
     all_videos = []
     for path in scan_paths:
-        videos = scan_for_videos(path, extensions_set)
+        videos = scan_for_videos(path, extensions_set, exclusions)
         all_videos.extend(videos)
         print(f"  Found {len(videos)} video(s) in this directory")
 
