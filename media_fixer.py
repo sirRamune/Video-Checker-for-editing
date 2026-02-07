@@ -171,7 +171,7 @@ def process_default_removal(media_data: List[Dict[str, Any]]) -> None:
             print(f"  - {file.get('file_path', '')}")
         
 
-def find_bitrate_optimization(media_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def find_bitrate_optimization(media_data: List[Dict[str, Any]], output_encoder: str) -> List[Dict[str, Any]]:
     """
     Find files that need bitrate optimization based on checks.
 
@@ -202,7 +202,7 @@ def find_bitrate_optimization(media_data: List[Dict[str, Any]]) -> List[Dict[str
 
                     # Calculate encoding parameters using bitrate_logic
                     encoding_params = calculate_encoding_parameters(
-                        width, height, framerate
+                        width, height, framerate, output_encoder
                     )
 
                     files_to_optimize.append({
@@ -213,8 +213,7 @@ def find_bitrate_optimization(media_data: List[Dict[str, Any]]) -> List[Dict[str
                         'current_bitrate': current_bitrate,
                         'target_bitrate': encoding_params['target_bitrate'],
                         'maxrate': encoding_params['maxrate'],
-                        'bufsize': encoding_params['bufsize'],
-                        'encoder': encoding_params['encoder']
+                        'bufsize': encoding_params['bufsize']
                     })
                 break
 
@@ -327,8 +326,7 @@ def process_entry_optimization(
             output_encoder,
             output_preset,
             entry['maxrate'],
-            entry['bufsize'],
-            entry['encoder']
+            entry['bufsize']
         )
         if returncode != 0:
             return returncode
@@ -377,7 +375,7 @@ def process_bitrate_optimization(
     output_path_dir.mkdir(parents=True, exist_ok=True)
 
     # Find files that need bitrate optimization
-    files_to_optimize = find_bitrate_optimization(media_data)
+    files_to_optimize = find_bitrate_optimization(media_data, output_encoder)
 
     if not files_to_optimize:
         print("No files need bitrate optimization.")

@@ -189,16 +189,14 @@ def load_output_config():
     # Get encoder (string)
     reference_encoder = os.getenv('OUTPUT_REFERENCE_ENCODER', 'HEVC')
 
-    # Get output encoding settings
-    output_encoder = os.getenv('OUTPUT_ENCODER', 'libx265')
-
-    return reference_width, reference_height, reference_framerate, reference_bitrate, reference_encoder, output_encoder
+    return reference_width, reference_height, reference_framerate, reference_bitrate, reference_encoder
 
 
 def calculate_encoding_parameters(
     source_width: int,
     source_height: int,
-    source_framerate: float
+    source_framerate: float,
+    output_encoder:str
 ) -> dict:
     """
     Calculate encoding parameters (target bitrate, maxrate, bufsize) based on source video
@@ -220,7 +218,7 @@ def calculate_encoding_parameters(
         - encoder: Encoder codec name (from .env)
     """
     # Get configuration
-    reference_width, reference_height, reference_framerate, reference_bitrate, reference_encoder, output_encoder = load_output_config()
+    reference_width, reference_height, reference_framerate, reference_bitrate, reference_encoder = load_output_config()
 
     # Determine target encoder format for calculation
     # Map ffmpeg codec names to our encoder efficiency names
@@ -255,6 +253,5 @@ def calculate_encoding_parameters(
     return {
         'target_bitrate': target_bitrate,
         'maxrate': maxrate,
-        'bufsize': bufsize,
-        'encoder': output_encoder
+        'bufsize': bufsize
     }
