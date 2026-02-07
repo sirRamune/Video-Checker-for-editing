@@ -24,7 +24,12 @@ def load_config():
     # Get output folder for encoded files
     encoded_output_folder = os.getenv('ENCODED_FILES_OUTPUT', './optimized-media/')
 
-    return input_file, encoded_output_folder
+    # Get video output values
+    output_crf = int(os.getenv('OUTPUT_CRF', '23'))
+    output_encoder = os.getenv('OUTPUT_ENCODER', 'libx265')
+    output_preset = os.getenv('OUTPUT_PRESET', 'medium')
+
+    return input_file, encoded_output_folder, output_crf, output_encoder, output_preset
 
 
 def load_media_data(input_file: str) -> List[Dict[str, Any]]:
@@ -243,17 +248,17 @@ def process_mkvmerge(
     return result.returncode
 
 
-def encode_video_vbr(
+def encode_video_crf(
     input_path: Path,
     output_path: Path,
-    target_bitrate: int,
+    output_crf: int,
+    output_encoder: str,
+    output_preset: str,
     maxrate: int,
-    bufsize: int,
-    encoder: str = "libx265",
-    preset: str = "slow"
+    bufsize: int
 ) -> int:
     """
-    Encode video with VBR (Variable Bit Rate).
+    Encode video with CRF (Constant Rate Factor).
 
     Args:
         input_path: Path to input video file
@@ -268,7 +273,6 @@ def encode_video_vbr(
         Return code from ffmpeg command
     """
     # Convert bitrates from bps to kbps for ffmpeg
-    target_bitrate_kbps = target_bitrate // 1000
     maxrate_kbps = maxrate // 1000
     bufsize_kbps = bufsize // 1000
 
@@ -277,11 +281,12 @@ def encode_video_vbr(
         "-y",
         "-i", str(input_path),
         "-map", "0",
-        "-c:v", encoder,
-        "-b:v", f"{target_bitrate_kbps}k",
+        "-c:v", output_encoder,
+        "-crf", output_crf,
+        "-b:v", "0",
         "-maxrate", f"{maxrate_kbps}k",
         "-bufsize", f"{bufsize_kbps}k",
-        "-preset", preset,
+        "-preset", output_preset,
         "-c:a", "copy",
         "-c:s", "copy",
         str(output_path)
@@ -297,6 +302,9 @@ def encode_video_vbr(
 def process_entry_optimization(
     input_path: Path,
     output_path: Path,
+    output_crf: int,
+    output_encoder: str,
+    output_preset: str,
     entry: Dict[str, Any]
 ) -> int:
     """
@@ -312,10 +320,12 @@ def process_entry_optimization(
     """
     try:
         # Encode file into output directory
-        returncode = encode_video_vbr(
+        returncode = encode_video_crf(
             input_path,
             output_path,
-            entry['target_bitrate'],
+            output_crf,
+            output_encoder,
+            output_preset,
             entry['maxrate'],
             entry['bufsize'],
             entry['encoder']
@@ -347,7 +357,10 @@ def process_entry_optimization(
 
 def process_bitrate_optimization(
     media_data: List[Dict[str, Any]],
-    output_folder: str
+    output_folder: str,
+    output_crf: int,
+    output_encoder: str,
+    output_preset: str
 ) -> None:
     """
     Process bitrate optimization for all files that need it.
@@ -400,6 +413,9 @@ def process_bitrate_optimization(
             returncode = process_entry_optimization(
                 input_path,
                 output_path,
+                output_crf,
+                output_encoder,
+                output_preset,
                 entry
             )
 
@@ -449,7 +465,7 @@ def main():
     print()
 
     # Get configuration
-    input_file, encoded_output_folder = load_config()
+    input_file, encoded_output_folder, output_crf, output_encoder, output_preset = load_config()
 
     # Load media data
     media_data = load_media_data(input_file)
@@ -464,7 +480,7 @@ def main():
     print()
 
     # Process bitrate optimization
-    process_bitrate_optimization(media_data, encoded_output_folder)
+    process_bitrate_optimization(media_data, encoded_output_folder, output_crf, output_encoder, output_preset)
 
 
 if __name__ == "__main__":
