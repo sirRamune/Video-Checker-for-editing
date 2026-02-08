@@ -281,7 +281,7 @@ def encode_video_crf(
         "-i", str(input_path),
         "-map", "0",
         "-c:v", output_encoder,
-        "-crf", output_crf,
+        "-crf", str(output_crf),
         "-b:v", "0",
         "-maxrate", f"{maxrate_kbps}k",
         "-bufsize", f"{bufsize_kbps}k",
