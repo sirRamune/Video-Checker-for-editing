@@ -25,7 +25,7 @@ def load_config():
     encoded_output_folder = os.getenv('ENCODED_FILES_OUTPUT', './optimized-media/')
 
     # Get video output values
-    output_crf = int(os.getenv('OUTPUT_CRF', '23'))
+    output_crf = int(os.getenv('OUTPUT_CRF', '22'))
     output_encoder = os.getenv('OUTPUT_ENCODER', 'libx265')
     output_preset = os.getenv('OUTPUT_PRESET', 'medium')
 
