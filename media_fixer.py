@@ -7,6 +7,7 @@ Utilizing various checks from Media Analyzer, performs fixes.
 import json
 import os
 import subprocess
+import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 from dotenv import load_dotenv
@@ -77,7 +78,8 @@ def remove_defaults(media_path: str, track_ids: List[int]) -> int:
 
 def process_mkvmerge(
     input_path: Path,
-    output_path: Path
+    output_path: Path,
+    subs_downloaded: List[Dict[str, Any]]
 ) -> None:
     """
     Run mkvmerge to refresh metadata of video.
@@ -94,6 +96,11 @@ def process_mkvmerge(
         "-o", str(output_path),
         str(input_path)
     ]
+
+    for sub in subs_downloaded:
+        cmd.append('--language')
+        cmd.append(f'0:{sub.get('lang_code', 'und')}')
+        cmd.append(str(sub.get('file_path', '')))
 
     print("Running mkvmerge:")
     print(" ".join(cmd))
@@ -362,18 +369,20 @@ def process_entry(
 
             # Remove source file
             os.remove(input_path)
+        elif subs_downloaded:
+            # Move file to temp to prepare for mkvmerge
+            shutil.move(input_path, output_path)
 
+        if needs_bitrate_optimization or subs_downloaded:
             # Update metadata and save output at source file path
             process_mkvmerge(
                 output_path,
-                input_path
+                input_path,
+                subs_downloaded
             )
-            
-            # Delete file in output directory
-            os.remove(output_path)
 
         # Process default removal
-        if needs_default_removal or needs_bitrate_optimization:
+        if needs_default_removal or needs_bitrate_optimization or subs_downloaded:
             process_default_removal(file_path)
 
         print()
@@ -381,13 +390,14 @@ def process_entry(
     except Exception as e:
         error_msg = str(e)
         print(f"  ✗ {error_msg}")
-        # Clean up output file if it exists
+        return {'file_path': file_path, 'error': error_msg}
+    finally:
+        # Cleanup of temp folder
         if input_path.exists() and output_path.exists():
             output_path.unlink()
         for sub in subs_downloaded:
             if sub['file_path'].exists():
                 sub['file_path'].unlink()
-        return {'file_path': file_path, 'error': error_msg}
 
 
 def main():
