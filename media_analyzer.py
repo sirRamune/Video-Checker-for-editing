@@ -8,11 +8,10 @@ import json
 import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from pymediainfo import MediaInfo
 from dotenv import load_dotenv
 
-from bitrate_logic import calculate_suggested_video_bitrate, format_bitrate
-from utils import get_array_from_env_and_file, normalize_language
+from bitrate_logic import calculate_suggested_video_bitrate
+from utils import get_array_from_env_and_file, extract_media_info, normalize_language
 
 
 def load_config():
@@ -49,81 +48,6 @@ def load_video_files(input_file: str) -> List[str]:
     except FileNotFoundError:
         print(f"Error: {input_file} not found. Run video_scanner.py first.")
     return video_files
-
-
-def extract_media_info(file_path: str) -> Optional[Dict[str, Any]]:
-    """Extract media information from a video file."""
-    try:
-        media_info = MediaInfo.parse(file_path)
-
-        # Extract general info
-        general = media_info.general_tracks[0] if media_info.general_tracks else None
-
-        # Extract video tracks
-        video_tracks = []
-        for track in media_info.video_tracks:
-            video_tracks.append({
-                "track_id": track.track_id,
-                "stream_order": track.stream_order,
-                "format": track.format,
-                "codec_id": track.codec_id,
-                "width": track.width,
-                "height": track.height,
-                "framerate": float(track.frame_rate) if track.frame_rate else None,
-                "bitrate": track.bit_rate,
-                "bit_depth": track.bit_depth,
-                "default": track.default if hasattr(track, 'default') else None,
-                "forced": track.forced if hasattr(track, 'forced') else None,
-            })
-
-        # Extract audio tracks
-        audio_tracks = []
-        for track in media_info.audio_tracks:
-            audio_tracks.append({
-                "track_id": track.track_id,
-                "stream_order": track.stream_order,
-                "format": track.format,
-                "codec_id": track.codec_id,
-                "channels": track.channel_s,
-                "sampling_rate": track.sampling_rate,
-                "bitrate": track.bit_rate,
-                "language": track.language if hasattr(track, 'language') else None,
-                "title": track.title if hasattr(track, 'title') else None,
-                "default": track.default if hasattr(track, 'default') else None,
-                "forced": track.forced if hasattr(track, 'forced') else None,
-            })
-
-        # Extract subtitle tracks
-        subtitle_tracks = []
-        for track in media_info.text_tracks:
-            subtitle_tracks.append({
-                "track_id": track.track_id,
-                "stream_order": track.stream_order,
-                "format": track.format,
-                "codec_id": track.codec_id,
-                "language": track.language if hasattr(track, 'language') else None,
-                "title": track.title if hasattr(track, 'title') else None,
-                "default": track.default if hasattr(track, 'default') else None,
-                "forced": track.forced if hasattr(track, 'forced') else None,
-            })
-
-        return {
-            "file_path": file_path,
-            "file_size": general.file_size if general else None,
-            "duration": general.duration if general else None,
-            "format": general.format if general else None,
-            "video_tracks": video_tracks,
-            "audio_tracks": audio_tracks,
-            "subtitle_tracks": subtitle_tracks,
-        }
-
-    except FileNotFoundError:
-        print(f"Warning: {file_path} not found")
-    except PermissionError as e:
-        print(f"Permission denied from {file_path}: {e}")
-    except Exception as e:
-        print(f"Error extracting media info from {file_path}: {e}")
-        return None
 
 
 def check_video_bitrate_reduction(media_data: Dict[str, Any], acceptable_difference: float) -> Dict[str, Any]:
