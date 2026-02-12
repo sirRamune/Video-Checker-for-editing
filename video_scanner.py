@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import List, Set
 from dotenv import load_dotenv
 
+from utils import read_lines_from_file
+
 
 def load_config():
     """Load configuration from .env file."""
@@ -26,21 +28,6 @@ def load_config():
     output_file = os.getenv('OUTPUT_FILE', 'video_files.txt')
 
     return extensions, scan_paths_str, paths_file, exclusions_str, exclusions_file, output_file
-
-
-def read_lines_from_file(file_path: str, line_type: str) -> List[str]:
-    """Read lines from a text file."""
-    lines = []
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#'):  # Skip empty lines and comments
-                    lines.append(line)
-        print(f"Loaded {len(lines)} {line_type}(s) from {file_path}")
-    except FileNotFoundError:
-        print(f"Warning: {file_path} not found")
-    return lines
 
 
 def get_scan_paths(scan_paths_str: str, paths_file: str) -> List[str]:

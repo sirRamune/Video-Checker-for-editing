@@ -6,6 +6,20 @@ Contains misc functions that could be used project wide.
 import pycountry
 
 
+def read_lines_from_file(file_path: str, line_type: str) -> List[str]:
+    """Read lines from a text file."""
+    lines = []
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):  # Skip empty lines and comments
+                    lines.append(line)
+        print(f"Loaded {len(lines)} {line_type}(s) from {file_path}")
+    except FileNotFoundError:
+        print(f"Warning: {file_path} not found")
+    return lines
+
 
 def normalize_language(code: str) -> str:
     if not code:
