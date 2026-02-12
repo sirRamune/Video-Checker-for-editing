@@ -33,8 +33,15 @@ def load_config():
     output_encoder = os.getenv('OUTPUT_ENCODER', 'libx265')
     output_preset = os.getenv('OUTPUT_PRESET', 'medium')
 
+    # Get opensubs credentials
+    opensubs_user = os.getenv('OPENSUBS_USER', '')
+    opensubs_pass = os.getenv('OPENSUBS_PASS', '')
+    opensubs_api_key = os.getenv('OPENSUBS_API_KEY', '')
 
-    return input_file, encoded_output_folder, output_crf, output_encoder, output_preset
+    # Get provider list
+    providers = [p.strip() for p in os.getenv('SUB_PROVIDERS', '').split(',') if p.strip()]
+
+    return input_file, encoded_output_folder, output_crf, output_encoder, output_preset, opensubs_user, opensubs_pass, opensubs_api_key, providers
 
 
 def load_media_data(input_file: str) -> List[Dict[str, Any]]:
@@ -251,6 +258,8 @@ def process_default_removal (
 
 
 def download_subs (
+    providers: List[str],
+    provider_configs: Dict[str, Any],
     input_path: Path,
     output_path: Path,
     subs_to_download: List[str]
@@ -276,7 +285,12 @@ def download_subs (
     languages = {Language(code) for code in subs_translated}
 
     # Get subtitles
-    subtitles = download_best_subtitles({video}, languages)
+    subtitles = download_best_subtitles(
+        {video}, 
+        languages,
+        providers=providers,
+        provider_configs=provider_configs
+    )
 
     # Check if it found subtitles
     if video not in subtitles:
@@ -308,6 +322,8 @@ def download_subs (
 
 
 def process_entry(
+    providers: List[str],
+    provider_configs: Dict[str, Any],
     entry: Dict[str, Any],
     output_folder: Path,
     output_crf: int, 
@@ -355,7 +371,7 @@ def process_entry(
     try:
         # Get missing subs
         if missing_subtitles:
-            subs_downloaded = download_subs(input_path, output_path, subs_to_download)
+            subs_downloaded = download_subs(providers, provider_configs, input_path, output_path, subs_to_download)
 
         # Process bitrate optimization
         if needs_bitrate_optimization:
@@ -409,11 +425,20 @@ def main():
     print()
 
     # Get configuration
-    input_file, encoded_output_folder, output_crf, output_encoder, output_preset = load_config()
+    input_file, encoded_output_folder, output_crf, output_encoder, output_preset, opensubs_user, opensubs_pass, opensubs_api_key, providers = load_config()
 
     # Create output folder if it doesn't exist
     output_path_dir = Path(encoded_output_folder)
     output_path_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate subliminal
+    provider_configs = {
+        'opensubtitlescom': {
+            'username': opensubs_user,
+            'password': opensubs_pass,
+            'api_key': opensubs_api_key,
+        }
+    }
 
     # Configure subliminal cache
     region.configure('dogpile.cache.dbm', arguments={'filename': 'cachefile.dbm'})
@@ -430,7 +455,7 @@ def main():
 
     # Process each entry
     for entry in media_data:
-        result = process_entry(entry, output_path_dir, output_crf, output_encoder, output_preset)
+        result = process_entry(providers, provider_configs, entry, output_path_dir, output_crf, output_encoder, output_preset)
 
         if "error" in result:
             failed_files.append(result)
