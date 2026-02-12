@@ -10,9 +10,11 @@ import subprocess
 from pathlib import Path
 from typing import List, Dict, Any
 from dotenv import load_dotenv
+from subliminal import scan_video, download_best_subtitles, save_subtitles, region
+from babelfish import Language
 
 from bitrate_logic import calculate_encoding_parameters
-from utils import extract_media_info
+from utils import extract_media_info, normalize_language
 
 
 def load_config():
@@ -23,14 +25,19 @@ def load_config():
     input_file = os.getenv('EDITABLE_FILES_OUTPUT', 'editable_files.json')
 
     # Get output folder for encoded files
-    encoded_output_folder = os.getenv('ENCODED_FILES_OUTPUT', './optimized-media/')
+    encoded_output_folder = os.getenv('TEMP_FOLDER', './temp/')
+
+    # Get opensubs account info
+    opensubs_user = os.getenv('OPENSUBS_USERNAME', '')
+    opensubs_pass = os.getenv('OPENSUBS_PASS', '')
 
     # Get video output values
     output_crf = int(os.getenv('OUTPUT_CRF', '22'))
     output_encoder = os.getenv('OUTPUT_ENCODER', 'libx265')
     output_preset = os.getenv('OUTPUT_PRESET', 'medium')
 
-    return input_file, encoded_output_folder, output_crf, output_encoder, output_preset
+
+    return input_file, encoded_output_folder, output_crf, output_encoder, output_preset, opensubs_user, opensubs_pass
 
 
 def load_media_data(input_file: str) -> List[Dict[str, Any]]:
@@ -240,22 +247,57 @@ def process_default_removal (
     remove_defaults(file_path, track_ids)
 
 
+def download_subs (
+    subs_credentials: Dict[str, Any],
+    input_path: Path,
+    output_path: Path,
+    subs_to_download: List[str]
+) -> None:
+    """
+    Find and download subs for a video.
+    """
+    # Start print
+    print(f"Processing missing subs: {str(input_path)}")
+    print(f"  Subs to download: {subs_to_download}")
+
+    # Get translated list of languages
+    subs_translated = []
+
+    for sub in subs_to_download:
+        translated_sub = normalize_language(sub, True)
+
+        if translated_sub:
+            subs_translated.append(translated_sub)
+
+    # Get necessary data about video and subs to download
+    video = scan_video(input_path)
+    languages = {Language(code) for code in subs_translated}
+
+    # Get providers data
+    providers = subs_credentials.get('providers', [])
+    provider_configs = subs_credentials.get('configs', {})
+
+    # Get subtitles
+    subtitles = download_best_subtitles({video}, languages, providers=providers, provider_configs=provider_configs)
+
+    save_subtitles(video, subtitles[video])
+
+
 def process_entry(
-        entry: Dict[str, Any],
-        output_folder: Path,
-        output_crf: int, 
-        output_encoder: str, 
-        output_preset: str
-    ) -> Dict[str, Any]:
+    subs_credentials: Dict[str, Any],
+    entry: Dict[str, Any],
+    output_folder: Path,
+    output_crf: int, 
+    output_encoder: str, 
+    output_preset: str
+) -> Dict[str, Any]:
     """
     Process each file according to media_analyzer response.
-
-    Args:
-        media_data: Dictionary with entry data
     """
     # Reset list of things to do
     needs_bitrate_optimization = False
     needs_default_removal = False
+    missing_subtitles = False
 
     # Obtain entry data
     file_path = entry.get('file_path')
@@ -265,6 +307,9 @@ def process_entry(
     # Obtain input_path and output_path
     input_path = Path(file_path)
     output_path = output_folder / input_path.name
+
+    # Used in case need to download subs
+    subs_to_download = []
 
     # Check list of checks
     for check in checks:
@@ -277,10 +322,16 @@ def process_entry(
         if is_editable and 'default' in check_type.lower():
             needs_default_removal = True
 
+        if is_editable and 'missing subtitle' in check_type.lower():
+            subs_to_download = check.get('missing_subs', [])
+
+            if subs_to_download:
+                missing_subtitles = True
+
     try:
-        # TODO: Get missing subs
-        if not needs_bitrate_optimization and not needs_default_removal: 
-            print(f"{file_path} is missing subs")
+        # Get missing subs
+        if missing_subtitles:
+            download_subs(subs_credentials, input_path, output_path, subs_to_download)
 
         # Process bitrate optimization
         if needs_bitrate_optimization:
@@ -328,11 +379,28 @@ def main():
     print()
 
     # Get configuration
-    input_file, encoded_output_folder, output_crf, output_encoder, output_preset = load_config()
+    input_file, encoded_output_folder, output_crf, output_encoder, output_preset, opensubs_user, opensubs_pass = load_config()
 
     # Create output folder if it doesn't exist
     output_path_dir = Path(encoded_output_folder)
     output_path_dir.mkdir(parents=True, exist_ok=True)
+
+    # Configure subliminal cache
+    region.configure('dogpile.cache.memory')
+
+    # Configure opensubtitles account
+    providers = ['opensubtitles']
+    provider_configs = {
+        'opensubtitles': {
+            'username': 'YOUR_USERNAME',
+            'password': 'YOUR_PASSWORD',
+        }
+    }
+
+    subs_credentials = {
+        'providers': providers,
+        'configs': provider_configs
+    }
 
     # Load media data
     media_data = load_media_data(input_file)
@@ -346,7 +414,7 @@ def main():
 
     # Process each entry
     for entry in media_data:
-        result = process_entry(entry, output_path_dir, output_crf, output_encoder, output_preset)
+        result = process_entry(subs_credentials, entry, output_path_dir, output_crf, output_encoder, output_preset)
 
         if "error" in result:
             failed_files.append(result)
