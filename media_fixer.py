@@ -12,6 +12,7 @@ from typing import List, Dict, Any
 from dotenv import load_dotenv
 
 from bitrate_logic import calculate_encoding_parameters
+from utils import extract_media_info
 
 
 def load_config():
@@ -46,47 +47,6 @@ def load_media_data(input_file: str) -> List[Dict[str, Any]]:
     return media_data
 
 
-def find_defaults_to_remove(media_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Find files that need default track removal based on checks.
-
-    Returns a list of dictionaries with file_path and track_ids to process.
-    """
-    files_to_fix = []
-
-    for entry in media_data:
-        file_path = entry.get('file_path')
-        checks = entry.get('checks', [])
-        media_info = entry.get('media_info', {})
-
-        # Check if any default-related check is editable
-        needs_fix = False
-        for check in checks:
-            check_type = check.get('type', '')
-            is_editable = check.get('editable', False)
-
-            if is_editable and ('default' in check_type.lower()):
-                needs_fix = True
-                break
-
-        if needs_fix:
-            # Collect track IDs from audio and subtitle tracks
-            track_ids = []
-
-            for audio_track in media_info.get('audio_tracks', []):
-                track_ids.append(audio_track.get('track_id'))
-
-            for subtitle_track in media_info.get('subtitle_tracks', []):
-                track_ids.append(subtitle_track.get('track_id'))
-
-            files_to_fix.append({
-                'file_path': file_path,
-                'track_ids': track_ids
-            })
-
-    return files_to_fix
-
-
 def remove_defaults(media_path: str, track_ids: List[int]) -> int:
     """
     Run command to remove default flags from specified audio and subtitle tracks.
@@ -104,126 +64,18 @@ def remove_defaults(media_path: str, track_ids: List[int]) -> int:
         cmd += ["--edit", f"track:{track_id}", "--set", "flag-default=0"]
 
     result = subprocess.run(cmd, check=True)
-    return result.returncode
+    returncode = result.returncode
 
-
-def process_default_removal(media_data: List[Dict[str, Any]]) -> None:
-    """
-    Process default removal for all files.
-
-    Returns a dictionary with processing results:
-    - total: Total files processed
-    - fixed: List of successfully fixed files
-    - failed: List of failed files with error messages
-    """
-    fixed_files = []
-    failed_files = []
-
-    # Find files that need default removal
-    files_to_fix = find_defaults_to_remove(media_data)
-
-    if not files_to_fix:
-        print("No files need default flag removal.")
-        return
-
-    print(f"\nFound {len(files_to_fix)} file(s) that need default removal:")
-    for entry in files_to_fix:
-        print(f"  - {entry['file_path']}")
-    print()
-
-    print(f"Processing {len(files_to_fix)} file(s)...")
-    print()
-
-    for entry in files_to_fix:
-        file_path = entry['file_path']
-        track_ids = entry['track_ids']
-
-        print(f"Processing: {file_path}")
-        print(f"  Track IDs: {track_ids}")
-        try:
-            returncode = remove_defaults(file_path, track_ids)
-            if returncode == 0:
-                print(f"  ✓ Successfully removed defaults")
-                fixed_files.append(file_path)
-            else:
-                error_msg = f"Failed with return code {returncode}"
-                print(f"  ✗ {error_msg}")
-                failed_files.append({'file_path': file_path, 'error': error_msg})
-        except subprocess.CalledProcessError as e:
-            error_msg = str(e)
-            print(f"  ✗ Error: {error_msg}")
-            failed_files.append({'file_path': file_path, 'error': error_msg})
-        except Exception as e:
-            error_msg = str(e)
-            print(f"  ✗ Unexpected error: {error_msg}")
-            failed_files.append({'file_path': file_path, 'error': error_msg})
-        print()
-
-    # Summary
-    print("=" * 70)
-    print("Default audio and subtitle summary:")
-    print(f"  Fixed: {len(fixed_files)}")
-    print(f"  Failed: {len(failed_files)}")
-
-    if failed_files:
-        print("\nFailed files:")
-        for file in failed_files:
-            print(f"  - {file.get('file_path', '')}")
-        
-
-def find_bitrate_optimization(media_data: List[Dict[str, Any]], output_encoder: str) -> List[Dict[str, Any]]:
-    """
-    Find files that need bitrate optimization based on checks.
-
-    Returns a list of dictionaries with file info and encoding parameters.
-    """
-    files_to_optimize = []
-
-    for entry in media_data:
-        file_path = entry.get('file_path')
-        checks = entry.get('checks', [])
-        media_info = entry.get('media_info', {})
-
-        # Check if bitrate reduction is editable
-        for check in checks:
-            check_type = check.get('type', '')
-            is_editable = check.get('editable', False)
-
-            if is_editable and 'bitrate reduction' in check_type.lower():
-                # Get video track info
-                video_tracks = media_info.get('video_tracks', [])
-                if video_tracks:
-                    video_track = video_tracks[0]  # Use first video track
-
-                    width = video_track.get('width')
-                    height = video_track.get('height')
-                    framerate = video_track.get('framerate')
-                    current_bitrate = video_track.get('bitrate')
-
-                    # Calculate encoding parameters using bitrate_logic
-                    encoding_params = calculate_encoding_parameters(
-                        width, height, framerate, output_encoder
-                    )
-
-                    files_to_optimize.append({
-                        'file_path': file_path,
-                        'width': width,
-                        'height': height,
-                        'framerate':framerate,
-                        'current_bitrate': current_bitrate,
-                        'target_bitrate': encoding_params['target_bitrate'],
-                        'maxrate': encoding_params['maxrate'],
-                        'bufsize': encoding_params['bufsize']
-                    })
-                break
-
-    return files_to_optimize
+    if returncode != 0:
+        error_msg = f"Failed with return code {returncode}"
+        print(f"  ✗ {error_msg}")
+        raise Exception(error_msg)
 
 
 def process_mkvmerge(
     input_path: Path,
     output_path: Path
-) -> int:
+) -> None:
     """
     Run mkvmerge to refresh metadata of video.
     
@@ -244,7 +96,12 @@ def process_mkvmerge(
     print(" ".join(cmd))
 
     result = subprocess.run(cmd, check=True)
-    return result.returncode
+    returncode = result.returncode
+
+    if returncode != 0:
+        error_msg = f"Failed with return code {returncode}"
+        print(f"  ✗ {error_msg}")
+        raise Exception(error_msg)
 
 
 def encode_video_crf(
@@ -255,7 +112,7 @@ def encode_video_crf(
     output_preset: str,
     maxrate: int,
     bufsize: int
-) -> int:
+) -> None:
     """
     Encode video with CRF (Constant Rate Factor).
 
@@ -295,7 +152,12 @@ def encode_video_crf(
     print(" ".join(cmd))
 
     result = subprocess.run(cmd, check=True)
-    return result.returncode
+    returncode = result.returncode
+
+    if returncode != 0:
+        error_msg = f"Failed with return code {returncode}"
+        print(f"  ✗ {error_msg}")
+        raise Exception(error_msg)
 
 
 def process_entry_optimization(
@@ -304,8 +166,8 @@ def process_entry_optimization(
     output_crf: int,
     output_encoder: str,
     output_preset: str,
-    entry: Dict[str, Any]
-) -> int:
+    video_tracks: Dict[str, Any]
+) -> None:
     """
     Run all optimization process for a file
     From encoding to even replacing the original file with optimization
@@ -317,142 +179,145 @@ def process_entry_optimization(
     Returns:
         Return code from mkvmerge command
     """
-    try:
-        # Encode file into output directory
-        returncode = encode_video_crf(
-            input_path,
-            output_path,
-            output_crf,
-            output_encoder,
-            output_preset,
-            entry['maxrate'],
-            entry['bufsize']
-        )
-        if returncode != 0:
-            return returncode
-        
-        # Remove source file
-        os.remove(input_path)
+    # Get file_path
+    file_path = str(input_path)
 
-        # Update metadata and save output at source file path
-        returncode = process_mkvmerge(
-            output_path,
-            input_path
-        )
-        if returncode != 0:
-            return returncode
-        
-        # Delete file in output directory
-        os.remove(output_path)
+    # Get video track info
+    if not video_tracks:
+        raise Exception(f"{file_path} doesn't contain any video tracks")
 
-        return 0
+    video_track = video_tracks[0]  # Use first video track
 
-    except subprocess.CalledProcessError as e:
-        raise e
-    except Exception as e:
-        raise e
+    # Get optimization data for entry
+    width = video_track.get('width')
+    height = video_track.get('height')
+    framerate = video_track.get('framerate')
+
+    # Calculate encoding parameters using bitrate_logic
+    encoding_params = calculate_encoding_parameters(width, height, framerate, output_encoder)
+    maxrate = encoding_params['maxrate']
+    bufsize = encoding_params['bufsize']
+
+    print(f"Processing bitrate optimization: {file_path}")
+    print(f"  Target bitrate: {encoding_params['target_bitrate'] / 1_000_000:.2f} Mbps")
+    print(f"  Encoder: {output_encoder}")
+    print(f"  Output: {output_path}")
+    print(f"  Preset: {output_preset}")
+
+    encode_video_crf(
+        input_path,
+        output_path,
+        output_crf,
+        output_encoder,
+        output_preset,
+        maxrate,
+        bufsize
+    )
 
 
-def process_bitrate_optimization(
-    media_data: List[Dict[str, Any]],
-    output_folder: str,
-    output_crf: int,
-    output_encoder: str,
-    output_preset: str
+def process_default_removal (
+    file_path: str
 ) -> None:
+    # Obtain updated media_info
+    media_info = extract_media_info(file_path)
+
+    # Obtain audio and subtitle tracks
+    tracks = media_info.get('audio_tracks', []) + media_info.get('subtitle_tracks', [])
+
+    # Check if it contains any track
+    if not tracks:
+        raise Exception(f"{file_path} doesn't contain any audio or subtitle tracks")
+
+    # Collect track IDs from audio and subtitle tracks
+    track_ids = []
+
+    for track in tracks:
+        track_ids.append(track.get('track_id'))
+
+    print(f"Processing default track removal: {file_path}")
+    print(f"  Track IDs: {track_ids}")
+
+    remove_defaults(file_path, track_ids)
+
+
+def process_entry(
+        entry: Dict[str, Any],
+        output_folder: Path,
+        output_crf: int, 
+        output_encoder: str, 
+        output_preset: str
+    ) -> Dict[str, Any]:
     """
-    Process bitrate optimization for all files that need it.
+    Process each file according to media_analyzer response.
 
     Args:
-        media_data: List of media file entries
-        output_folder: Folder where optimized files will be saved
+        media_data: Dictionary with entry data
     """
-    fixed_files = []
-    failed_files = []
+    # Reset list of things to do
+    needs_bitrate_optimization = False
+    needs_default_removal = False
 
-    # Create output folder if it doesn't exist
-    output_path_dir = Path(output_folder)
-    output_path_dir.mkdir(parents=True, exist_ok=True)
+    # Obtain entry data
+    file_path = entry.get('file_path')
+    checks = entry.get('checks', [])
+    media_info = entry.get('media_info', {})
 
-    # Find files that need bitrate optimization
-    files_to_optimize = find_bitrate_optimization(media_data, output_encoder)
+    # Obtain input_path and output_path
+    input_path = Path(file_path)
+    output_path = output_folder / input_path.name
 
-    if not files_to_optimize:
-        print("No files need bitrate optimization.")
-        return
+    # Check list of checks
+    for check in checks:
+        check_type = check.get('type', '')
+        is_editable = check.get('editable', False)
 
-    print(f"\nFound {len(files_to_optimize)} file(s) that need bitrate optimization:")
-    for entry in files_to_optimize:
-        print(entry)
-        current_bitrate = entry['current_bitrate'] / 1_000_000
-        target_bitrate = entry['target_bitrate'] / 1_000_000
-        print(f"  - {entry['file_path']}")
-        print(f"    {entry['width']}x{entry['height']}@{entry['framerate']}fps")
-        print(f"    Current: {current_bitrate:.2f} Mbps → Target: {target_bitrate:.2f} Mbps")
-        print(f"    Encoder: {output_encoder}")
-    print()
+        if is_editable and 'bitrate reduction' in check_type.lower():
+            needs_bitrate_optimization = True
 
-    print(f"Processing {len(files_to_optimize)} file(s)...")
-    print(f"Output folder: {output_folder}")
-    print()
+        if is_editable and 'default' in check_type.lower():
+            needs_default_removal = True
 
-    for entry in files_to_optimize:
-        file_path = entry['file_path']
-        input_path = Path(file_path)
+    try:
+        # TODO: Get missing subs
+        if not needs_bitrate_optimization and not needs_default_removal: 
+            print(f"{file_path} is missing subs")
 
-        # Create output path in output folder with same filename
-        output_path = output_path_dir / input_path.name
-
-        print(f"Processing: {file_path}")
-        print(f"  Target bitrate: {entry['target_bitrate'] / 1_000_000:.2f} Mbps")
-        print(f"  Encoder: {output_encoder}")
-        print(f"  Output: {output_path}")
-        try:
-            returncode = process_entry_optimization(
+        # Process bitrate optimization
+        if needs_bitrate_optimization:
+            process_entry_optimization(
                 input_path,
                 output_path,
                 output_crf,
                 output_encoder,
                 output_preset,
-                entry
+                media_info.get('video_tracks', [])
             )
 
-            if returncode == 0:
-                print(f"  ✓ Successfully encoded")
-                fixed_files.append(file_path)
-            else:
-                error_msg = f"Failed with return code {returncode}"
-                print(f"  ✗ {error_msg}")
-                failed_files.append({'file_path': file_path, 'error': error_msg})
-                # Clean up output file if it exists
-                if input_path.exists() and output_path.exists():
-                    output_path.unlink()
-        except subprocess.CalledProcessError as e:
-            error_msg = str(e)
-            print(f"  ✗ Error: {error_msg}")
-            failed_files.append({'file_path': file_path, 'error': error_msg})
-            # Clean up output file if it exists
-            if input_path.exists() and output_path.exists():
-                output_path.unlink()
-        except Exception as e:
-            error_msg = str(e)
-            print(f"  ✗ Unexpected error: {error_msg}")
-            failed_files.append({'file_path': file_path, 'error': error_msg})
-            # Clean up output file if it exists
-            if input_path.exists() and output_path.exists():
-                output_path.unlink()
+            # Remove source file
+            os.remove(input_path)
+
+            # Update metadata and save output at source file path
+            process_mkvmerge(
+                output_path,
+                input_path
+            )
+            
+            # Delete file in output directory
+            os.remove(output_path)
+
+        # Process default removal
+        if needs_default_removal or needs_bitrate_optimization:
+            process_default_removal(file_path)
+
         print()
-
-    # Summary
-    print("=" * 70)
-    print("Bitrate optimization summary:")
-    print(f"  Fixed: {len(fixed_files)}")
-    print(f"  Failed: {len(failed_files)}")
-
-    if failed_files:
-        print("\nFailed files:")
-        for file in failed_files:
-            print(f"  - {file.get('file_path', '')}")
+        return {'file_path': file_path}
+    except Exception as e:
+        error_msg = str(e)
+        print(f"  ✗ {error_msg}")
+        # Clean up output file if it exists
+        if input_path.exists() and output_path.exists():
+            output_path.unlink()
+        return {'file_path': file_path, 'error': error_msg}
 
 
 def main():
@@ -465,6 +330,10 @@ def main():
     # Get configuration
     input_file, encoded_output_folder, output_crf, output_encoder, output_preset = load_config()
 
+    # Create output folder if it doesn't exist
+    output_path_dir = Path(encoded_output_folder)
+    output_path_dir.mkdir(parents=True, exist_ok=True)
+
     # Load media data
     media_data = load_media_data(input_file)
 
@@ -472,13 +341,28 @@ def main():
         print("No media files to process.")
         return
 
-    # Process default removal
-    process_default_removal(media_data)
+    fixed_files = []
+    failed_files = []
 
-    print()
+    # Process each entry
+    for entry in media_data:
+        result = process_entry(entry, output_path_dir, output_crf, output_encoder, output_preset)
 
-    # Process bitrate optimization
-    process_bitrate_optimization(media_data, encoded_output_folder, output_crf, output_encoder, output_preset)
+        if "error" in result:
+            failed_files.append(result)
+        else:
+            fixed_files.append(result)
+
+    # Summary
+    print("=" * 70)
+    print("Summary:")
+    print(f"  Fixed: {len(fixed_files)}")
+    print(f"  Failed: {len(failed_files)}")
+
+    if failed_files:
+        print("\nFailed files:")
+        for file in failed_files:
+            print(f"  - {file.get('file_path', '')}")
 
 
 if __name__ == "__main__":
