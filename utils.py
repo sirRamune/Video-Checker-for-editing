@@ -21,6 +21,25 @@ def read_lines_from_file(file_path: str, line_type: str) -> List[str]:
     return lines
 
 
+def get_array_from_env_and_file(env_str: str, file: str, array_type: str) -> List[str]:
+    """Get list of paths to scan from config or file."""
+    paths = []
+
+    # First, try to get items from environment variable
+    if env_str:
+        paths = [p.strip() for p in env_str.split(',') if p.strip()]
+        print(f"Using {len(paths)} {array_type}(s) from .env")
+    else:
+        print(f"Warning: No {array_type}(s) specified in .env") 
+    
+    print()
+    
+    # Then, read from file
+    paths.extend(read_lines_from_file(file, array_type))
+
+    return paths
+
+
 def normalize_language(code: str) -> str:
     if not code:
         return None

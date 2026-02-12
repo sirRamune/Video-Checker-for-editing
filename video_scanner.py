@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import List, Set
 from dotenv import load_dotenv
 
-from utils import read_lines_from_file
+from utils import get_array_from_env_and_file
 
 
 def load_config():
@@ -28,44 +28,6 @@ def load_config():
     output_file = os.getenv('OUTPUT_FILE', 'video_files.txt')
 
     return extensions, scan_paths_str, paths_file, exclusions_str, exclusions_file, output_file
-
-
-def get_scan_paths(scan_paths_str: str, paths_file: str) -> List[str]:
-    """Get list of paths to scan from config or file."""
-    paths = []
-
-    # First, try to get paths from environment variable
-    if scan_paths_str:
-        paths = [p.strip() for p in scan_paths_str.split(',') if p.strip()]
-        print(f"Using {len(paths)} path(s) from .env")
-    else:
-        print(f"Warning: No paths specified in .env") 
-    
-    print()
-    
-    # Then, read from file
-    paths.extend(read_lines_from_file(paths_file, 'path'))
-
-    return paths
-
-
-def get_exclusions(exclusions_str: str, exclusions_file: str) -> List[str]:
-    """Get list of exclusions from config or file."""
-    exclusions = []
-
-    # First, try to get paths from environment variable
-    if exclusions_str:
-        exclusions_str = [p.strip() for p in exclusions_str.split(',') if p.strip()]
-        print(f"Using {len(exclusions)} exclusion(s) from .env")
-    else:
-        print(f"Warning: No exclusions specified in .env") 
-    
-    print()
-    
-    # Then, read from file
-    exclusions.extend(read_lines_from_file(exclusions_file, 'exclusion'))
-
-    return exclusions
 
 
 def scan_for_videos(directory: str, extensions: Set[str], exclusions: List[str]) -> List[Path]:
@@ -120,14 +82,14 @@ def main():
     print()
 
     # Get paths to scan
-    scan_paths = get_scan_paths(scan_paths_str, paths_file)
+    scan_paths = get_array_from_env_and_file(scan_paths_str, paths_file, 'path')
 
     if not scan_paths:
         print("Error: No paths to scan. Please configure SCAN_PATHS in .env or create paths.txt")
         return
 
     # Get exclusions
-    exclusions = get_exclusions(exclusions_str, exclusions_file)
+    exclusions = get_array_from_env_and_file(exclusions_str, exclusions_file, 'exclusion')
     print()
 
     # Scan all directories
