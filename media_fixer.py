@@ -280,7 +280,7 @@ def download_subs (
     # Get subtitles
     subtitles = download_best_subtitles({video}, languages, providers=providers, provider_configs=provider_configs)
 
-    save_subtitles(video, subtitles[video])
+    save_subtitles(video, subtitles[video], directory=output_path)
 
 
 def process_entry(
@@ -386,7 +386,7 @@ def main():
     output_path_dir.mkdir(parents=True, exist_ok=True)
 
     # Configure subliminal cache
-    region.configure('dogpile.cache.memory')
+    region.configure('dogpile.cache.dbm', arguments={'filename': 'cachefile.dbm'})
 
     # Configure opensubtitles account
     providers = ['opensubtitles']

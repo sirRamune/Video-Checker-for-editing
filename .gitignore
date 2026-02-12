@@ -14,6 +14,9 @@ editable_files.json
 # Temp folder
 temp/
 
+# Cache files
+*cache*
+
 # Python
 __pycache__/
 *.py[cod]
