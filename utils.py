@@ -32,8 +32,6 @@ def get_array_from_env_and_file(env_str: str, file: str, array_type: str) -> Lis
     else:
         print(f"Warning: No {array_type}(s) specified in .env") 
     
-    print()
-    
     # Then, read from file
     paths.extend(read_lines_from_file(file, array_type))
 
