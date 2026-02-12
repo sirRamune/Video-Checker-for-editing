@@ -1,0 +1,8 @@
+# Example needed_subs.txt file
+# Add one needed sub per line
+# Lines starting with # are ignored
+
+# Example paths:
+# en
+# es
+# ja
