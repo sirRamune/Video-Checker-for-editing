@@ -11,8 +11,8 @@ video_files.txt
 media_analysis.json
 editable_files.json
 
-# Output folder
-optimized-media/
+# Temp folder
+temp/
 
 # Python
 __pycache__/
