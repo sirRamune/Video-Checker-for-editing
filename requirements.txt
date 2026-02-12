@@ -13,6 +13,7 @@ guessit==3.8.0
 idna==3.11
 knowit==0.5.11
 platformdirs==4.5.1
+pycountry==24.6.1
 pymediainfo==7.0.1
 pysubs2==1.8.0
 python-dateutil==2.9.0.post0
