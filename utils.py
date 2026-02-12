@@ -115,20 +115,26 @@ def extract_media_info(file_path: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def normalize_language(code: str) -> str:
+def normalize_language(code: str, to_alpha3: bool = False) -> Optional[str]:
     if not code:
         return None
 
     code = code.lower()
 
-    # Try ISO 639-1 (2-letter)
+    lang = None
+
+    # Try 2-letter
     lang = pycountry.languages.get(alpha_2=code)
-    if lang:
-        return lang.alpha_2
 
-    # Try ISO 639-2 / 639-3 (3-letter)
-    lang = pycountry.languages.get(alpha_3=code)
-    if lang:
-        return lang.alpha_2 if hasattr(lang, 'alpha_2') else None
+    # Try 3-letter
+    if not lang:
+        lang = pycountry.languages.get(alpha_3=code)
 
-    return None
+    if not lang:
+        return None
+
+    if to_alpha3:
+        return getattr(lang, "alpha_3", None)
+    else:
+        return getattr(lang, "alpha_2", None)
+
