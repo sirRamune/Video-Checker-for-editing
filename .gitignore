@@ -4,6 +4,7 @@
 # User configuration
 paths.txt
 exclusions.txt
+needed_subs.txt
 
 # Output files
 video_files.txt
