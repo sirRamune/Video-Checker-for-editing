@@ -33,7 +33,7 @@ def load_config():
     output_preset = os.getenv('OUTPUT_PRESET', 'medium')
 
 
-    return input_file, encoded_output_folder, output_crf, output_encoder, output_preset, opensubs_user, opensubs_pass
+    return input_file, encoded_output_folder, output_crf, output_encoder, output_preset
 
 
 def load_media_data(input_file: str) -> List[Dict[str, Any]]:
@@ -247,7 +247,7 @@ def download_subs (
     input_path: Path,
     output_path: Path,
     subs_to_download: List[str]
-) -> None:
+) -> List[Dict[str, Any]]:
     """
     Find and download subs for a video.
     """
@@ -271,7 +271,32 @@ def download_subs (
     # Get subtitles
     subtitles = download_best_subtitles({video}, languages)
 
-    save_subtitles(video, subtitles[video], directory=output_path.parent)
+    # Check if it found subtitles
+    if video not in subtitles:
+        return []
+    
+    # Get output_folder
+    output_folder = output_path.parent
+
+    # Save subtitles
+    save_subtitles(video, subtitles[video], directory=output_folder)
+
+    # Get list of saved files
+    saved_files = []
+
+    for subtitle in subtitles[video]:
+        lang_code = subtitle.language.alpha3
+        trans_lang_code = normalize_language(lang_code)
+        filename = f"{input_path.stem}.{trans_lang_code}.srt"
+        full_path = output_folder / filename
+        saved_files.append({
+            'lang_code': trans_lang_code,
+            'file_path': full_path
+        })
+
+    print(f"Donwloaded {len(saved_files)} subtitles.")
+
+    return saved_files
 
 
 def process_entry(
@@ -300,6 +325,7 @@ def process_entry(
 
     # Used in case need to download subs
     subs_to_download = []
+    subs_downloaded = []
 
     # Check list of checks
     for check in checks:
@@ -321,7 +347,7 @@ def process_entry(
     try:
         # Get missing subs
         if missing_subtitles:
-            download_subs(input_path, output_path, subs_to_download)
+            subs_downloaded = download_subs(input_path, output_path, subs_to_download)
 
         # Process bitrate optimization
         if needs_bitrate_optimization:
@@ -358,6 +384,9 @@ def process_entry(
         # Clean up output file if it exists
         if input_path.exists() and output_path.exists():
             output_path.unlink()
+        for sub in subs_downloaded:
+            if sub['file_path'].exists():
+                sub['file_path'].unlink()
         return {'file_path': file_path, 'error': error_msg}
 
 
