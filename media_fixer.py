@@ -294,7 +294,8 @@ def download_subs (
     for subtitle in subtitles[video]:
         lang_code = subtitle.language.alpha3
         trans_lang_code = normalize_language(lang_code)
-        filename = f"{input_path.stem}.{trans_lang_code}.srt"
+        extension = subtitle.format
+        filename = f"{input_path.stem}.{trans_lang_code}.{extension}"
         full_path = output_folder / filename
         saved_files.append({
             'lang_code': trans_lang_code,
