@@ -4,6 +4,7 @@ Contains logic to determine if a video's bitrate can be reduced.
 """
 
 import os
+import math
 from dotenv import load_dotenv
 
 
@@ -66,7 +67,7 @@ def load_scaling_config():
     load_dotenv()
 
     # Get scaling values (floats)
-    pixel_scaling = float(os.getenv('PIXEL_SCALING', '90.0'))
+    pixel_scaling = float(os.getenv('PIXEL_SCALING', '75.0'))
     framerate_scaling = float(os.getenv('FRAMERATE_SCALING', '75.0'))
 
     return pixel_scaling, framerate_scaling
@@ -124,7 +125,7 @@ def obtain_suggested_bitrate(
     suggested_bitrate = reference_bitrate * pixel_multiplier * framerate_multiplier * encoder_multiplier
 
     # Round suggested bitrate
-    rounded_suggested_bitrate = int(suggested_bitrate / 100000) * 100000
+    rounded_suggested_bitrate = math.ceil(suggested_bitrate / 100000) * 100000
 
     return rounded_suggested_bitrate
 
