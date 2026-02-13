@@ -17,6 +17,10 @@ from babelfish import Language
 from bitrate_logic import calculate_encoding_parameters
 from utils import extract_media_info, normalize_language
 
+# Logging for subliminal
+#import logging
+#logging.basicConfig(level=logging.DEBUG)
+
 
 def load_config():
     """Load configuration from .env file."""
@@ -436,7 +440,7 @@ def main():
         'opensubtitlescom': {
             'username': opensubs_user,
             'password': opensubs_pass,
-            'api_key': opensubs_api_key,
+            'apikey': opensubs_api_key,
         }
     }
 
