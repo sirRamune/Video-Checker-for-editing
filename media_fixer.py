@@ -312,7 +312,7 @@ def download_subs (
     for subtitle in subtitles[video]:
         lang_code = subtitle.language.alpha3
         trans_lang_code = normalize_language(lang_code)
-        extension = subtitle.format
+        extension = subtitle.subtitle_format
         filename = f"{input_path.stem}.{trans_lang_code}.{extension}"
         full_path = output_folder / filename
         saved_files.append({
