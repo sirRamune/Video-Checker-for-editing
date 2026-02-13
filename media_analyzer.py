@@ -253,7 +253,6 @@ def main():
         return
     
     needed_subs = get_array_from_env_and_file(needed_subs_str, needed_subs_file, 'needed sub')
-    print(needed_subs)
 
     # Analyze each file
     analyses = []
