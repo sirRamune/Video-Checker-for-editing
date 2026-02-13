@@ -109,8 +109,8 @@ def process_mkvmerge(
     ]
 
     for sub in subs_downloaded:
-        cmd.append('--language')
-        cmd.append(f'0:{sub.get('lang_code', 'und')}')
+        cmd.append("--language")
+        cmd.append(f"0:{sub.get('lang_code', 'und')}")
         cmd.append(str(sub.get('file_path', '')))
 
     print("Running mkvmerge:")
