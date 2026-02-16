@@ -198,6 +198,17 @@ def save_editable_files_json(analyses: List[Dict[str, Any]], output_file: str):
         if any(checks.get("editable") for checks in analysis.get("checks", []))
     ]
 
+    # Sort by bitrate_difference biggest to smallest
+    def get_video_bitrate_difference(analysis):
+        for check in analysis.get("checks", []):
+            if (
+                check.get("type") == "Video bitrate reduction"
+                and check.get("editable")
+            ):
+                return check.get("bitrate_difference", 0)
+        return 0
+    editable_files.sort(key=get_video_bitrate_difference, reverse=True)
+
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(editable_files, f, indent=2, default=str)
 
