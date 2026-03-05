@@ -285,7 +285,7 @@ def download_subs (
             subs_translated.append(translated_sub)
 
     # Get necessary data about video and subs to download
-    video = scan_video(input_path)
+    video = scan_video(str(input_path))
     languages = {Language(code) for code in subs_translated}
 
     # Get subtitles
